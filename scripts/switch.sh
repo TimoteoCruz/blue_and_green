@@ -1,10 +1,18 @@
 #!/bin/bash
+ENV=$1  # blue o green
 
-if [ "$1" == "green" ]; then
-    sed -i 's/server 127.0.0.1:8081;/server 127.0.0.1:8082;/' /etc/nginx/nginx.conf
+# Actualizar Nginx con sudo
+NGINX_CONF="/etc/nginx/nginx.conf"
+
+# Reemplazar el puerto del backend según el entorno
+if [ "$ENV" == "blue" ]; then
+    sudo sed -i 's/set \$backend_port .*;/set \$backend_port 8081;/' $NGINX_CONF
 else
-    sed -i 's/server 127.0.0.1:8082;/server 127.0.0.1:8081;/' /etc/nginx/nginx.conf
+    sudo sed -i 's/set \$backend_port .*;/set \$backend_port 8082;/' $NGINX_CONF
 fi
 
-sudo nginx -s reload
-echo "Switched to $1 environment"
+# Reiniciar Nginx
+sudo systemctl restart nginx
+
+echo "Switched to $ENV environment"
+
