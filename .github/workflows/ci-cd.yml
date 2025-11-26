@@ -1,38 +1,59 @@
 name: CI/CD Blue-Green
 
 on:
-  push:
-    branches:
-      - main
+push:
+branches:
+- main
 
 jobs:
-  deploy:
-    runs-on: ubuntu-latest
+deploy:
+runs-on: ubuntu-latest
 
-    steps:
-      - name: Checkout repo
-        uses: actions/checkout@v3
+steps:
+  - name: Checkout repo
+    uses: actions/checkout@v3
 
-      - name: Set up SSH
-        uses: webfactory/ssh-agent@v0.7.0
-        with:
-          ssh-private-key: ${{ secrets.AWS_SSH_KEY }}
+  - name: Set up SSH
+    uses: webfactory/ssh-agent@v0.7.0
+    with:
+      # Usa el secreto que contiene tu llave privada SSH para conectarte a la EC2
+      ssh-private-key: ${{ secrets.AWS_SSH_KEY }}
 
-      - name: Deploy to AWS server
-        run: |
-          ssh -o StrictHostKeyChecking=no ec2-user@3.142.135.54 << 'EOF'
-            cd ~/blue-green-app
-            git pull origin main
-            chmod +x scripts/deploy.sh scripts/switch.sh
+  - name: Deploy to AWS server
+    run: |
+      # Conexión SSH a la instancia EC2
+      ssh -o StrictHostKeyChecking=no ec2-user@3.142.135.54 << 'EOF'
+        # Navegar al directorio del proyecto en la EC2
+        cd ~/blue-green-app
+        git pull origin main
+        
+        # Asegurar permisos de ejecución para los scripts
+        chmod +x scripts/deploy.sh scripts/switch.sh
 
-            LAST=$(cat last_env.txt || echo "green")
-            if [ "$LAST" == "green" ]; then
-                ./scripts/deploy.sh blue
-                ./scripts/switch.sh blue
-                echo "blue" > last_env.txt
-            else
-                ./scripts/deploy.sh green
-                ./scripts/switch.sh green
-                echo "green" > last_env.txt
-            fi
-          EOF
+        # Determinar el último entorno activo (Green por defecto si es la primera vez)
+        LAST=$(cat last_env.txt || echo "green")
+        
+        # --- Lógica de Conmutación Blue/Green ---
+        if [ "$LAST" == "green" ]; then
+            # Si el último activo fue Green, desplegamos en Blue (puerto 8081)
+            NEW_ENV="blue"
+            PORT_TO_SWITCH="8081"
+        else
+            # Si el último activo fue Blue, desplegamos en Green (puerto 8082)
+            NEW_ENV="green"
+            PORT_TO_SWITCH="8082"
+        fi
+
+        # 1. Desplegar: Crea y ejecuta el nuevo contenedor (Blue en 8081 o Green en 8082).
+        # Esto se hace en segundo plano (el contenedor viejo sigue activo en el otro puerto).
+        ./scripts/deploy.sh $NEW_ENV 
+        
+        # 2. Conmutar: Llama a switch.sh pasando el número de puerto.
+        # Este es el cambio CLAVE para evitar el error de Nginx.
+        ./scripts/switch.sh $PORT_TO_SWITCH
+        
+        # 3. Registrar: Guarda el nuevo entorno activo para el próximo ciclo
+        echo "$NEW_ENV" > last_env.txt
+        
+        echo "El entorno desplegado y activado fue: $NEW_ENV en el puerto $PORT_TO_SWITCH"
+      EOF
