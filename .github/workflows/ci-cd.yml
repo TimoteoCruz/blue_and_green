@@ -20,7 +20,7 @@ jobs:
 
       - name: Deploy to AWS server
         run: |
-          ssh -o StrictHostKeyChecking=no ec2-user@18.224.59.31 << 'EOF'
+          ssh -o StrictHostKeyChecking=no ec2-user@3.142.135.54 << 'EOF'
             cd ~/blue-green-app
             git pull origin main
             chmod +x scripts/deploy.sh scripts/switch.sh
