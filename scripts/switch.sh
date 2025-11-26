@@ -1,29 +1,32 @@
 #!/bin/bash
-# Este script espera el número de puerto destino (8081 o 8082) como argumento.
-PORT_TO_SWITCH=$1
 
-UPSTREAM_CONF="/etc/nginx/upstream.conf"
-
-# 1. Validación: Asegurar que se pasó un puerto
-if [ -z "$PORT_TO_SWITCH" ]; then
-    echo "🚨 ERROR: Debe especificar el puerto destino (8081 para Blue o 8082 para Green)."
-    echo "Uso: ./switch.sh 8081"
-    exit 1
+# Validar parámetro
+if [ -z "$1" ]; then
+  echo "Uso: ./deploy.sh <blue|green>"
+  exit 1
 fi
 
-# Esto asegura que Nginx solo apunte a un puerto a la vez.
-# Utilizamos 'tee' con 'sudo' para escribir en un archivo del sistema.
-echo "server 127.0.0.1:$PORT_TO_SWITCH;" | sudo tee $UPSTREAM_CONF > /dev/null
+ENV=$1  # blue o green
+PORT=8081
 
-# 3. Reinicio de Nginx
-# Utilizamos 'restart' en lugar de 'reload' para forzar a Nginx a leer completamente
-# el nuevo archivo incluido, aunque 'reload' suele ser suficiente.
-sudo systemctl restart nginx
-
-echo "✅ Tráfico conmutado exitosamente al puerto: $PORT_TO_SWITCH"
-
-if [ "$PORT_TO_SWITCH" == "8081" ]; then
-    echo "Entorno activo: BLUE"
-elif [ "$PORT_TO_SWITCH" == "8082" ]; then
-    echo "Entorno activo: GREEN"
+# Seleccionar puerto según ambiente
+if [ "$ENV" == "green" ]; then
+    PORT=8082
 fi
+
+# Ruta del proyecto (ajusta si es necesario)
+APP_PATH=~/blue-green-app
+
+# Construir imagen
+echo "Construyendo imagen para $ENV..."
+docker build -t blue-green-app:$ENV $APP_PATH
+
+# Detener contenedor previo (si existe)
+echo "Deteniendo contenedor previo (si existe)..."
+docker rm -f blue-green-app-$ENV 2>/dev/null || true
+
+# Ejecutar nuevo contenedor
+echo "Levantando contenedor $ENV en el puerto $PORT..."
+docker run -d --name blue-green-app-$ENV -p $PORT:8080 blue-green-app:$ENV
+
+echo "✔ $ENV desplegado correctamente en el puerto $PORT"
