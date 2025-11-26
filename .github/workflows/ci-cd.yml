@@ -40,5 +40,5 @@ jobs:
             ./scripts/switch.sh $PORT_TO_SWITCH
             echo "$NEW_ENV" > last_env.txt
 
-            echo "El entorno desplegado y activado fue: $NEW_ENV en el puerto $PORT_TO_SWITCH"
+            echo "Entorno desplegado y activado fue: $NEW_ENV en el puerto $PORT_TO_SWITCH"
           EOF
