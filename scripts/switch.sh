@@ -1,32 +1,52 @@
 #!/bin/bash
 
-# Validar parámetro
-if [ -z "$1" ]; then
-  echo "Uso: ./deploy.sh <blue|green>"
+# ================================
+# Parámetros
+# ================================
+ENV=$1      # blue | green
+TAG=$2      # hash dinámico del pipeline (ej: 6a25ace...)
+IMAGE="***/blue-green-app:$TAG"
+
+# Validaciones
+if [ -z "$ENV" ] || [ -z "$TAG" ]; then
+  echo "Uso: ./deploy.sh <blue|green> <tag>"
   exit 1
 fi
 
-ENV=$1  # blue o green
-PORT=8081
+if [ "$ENV" != "blue" ] && [ "$ENV" != "green" ]; then
+  echo "Error: ENV debe ser blue o green"
+  exit 1
+fi
 
-# Seleccionar puerto según ambiente
+# Puerto según ambiente
+PORT=8081
 if [ "$ENV" == "green" ]; then
     PORT=8082
 fi
 
-# Ruta del proyecto (ajusta si es necesario)
-APP_PATH=~/blue-green-app
+echo "============================"
+echo "🚀 Deploying $ENV"
+echo "🔖 TAG: $TAG"
+echo "🐳 Image: $IMAGE"
+echo "🌐 Port: $PORT"
+echo "============================"
 
-# Construir imagen
-echo "Construyendo imagen para $ENV..."
-docker build -t blue-green-app:$ENV $APP_PATH
+# ================================
+# Pull de imagen
+# ================================
+echo "📥 Pulling image..."
+docker pull $IMAGE
 
-# Detener contenedor previo (si existe)
-echo "Deteniendo contenedor previo (si existe)..."
+# ================================
+# Detener contenedor previo
+# ================================
+echo "🧹 Removing old container..."
 docker rm -f blue-green-app-$ENV 2>/dev/null || true
 
+# ================================
 # Ejecutar nuevo contenedor
-echo "Levantando contenedor $ENV en el puerto $PORT..."
-docker run -d --name blue-green-app-$ENV -p $PORT:8080 blue-green-app:$ENV
+# ================================
+echo "🐳 Starting container..."
+docker run -d --name blue-green-app-$ENV -p $PORT:8080 $IMAGE
 
-echo "✔ $ENV desplegado correctamente en el puerto $PORT"
+echo "✅ $ENV environment deployed on port $PORT using TAG $TAG"
